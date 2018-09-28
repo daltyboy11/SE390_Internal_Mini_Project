@@ -1,6 +1,6 @@
 import pytest
 import sys
-sys.path.append('/Users/daltyboy11/School/3b/se390/internal_mini_project/')
+sys.path.append('../')
 
 from flaskr import create_app
 
