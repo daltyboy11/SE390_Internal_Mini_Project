@@ -11,7 +11,9 @@ def test_course_planner( client ):
                 "courses_taken" : [ { "dcode" : "CS", "cnum" : 135 },
                                     { "dcode" : "CS", "cnum" : 136 }],
 
-                "courses_to_take" : [ { "dcode" : "CS", "cnum" : 241 }],
+                "courses_to_take" : [ { "dcode" : "CS", "cnum" : 241 },
+                                      { "dcode" : "CS", "cnum" : 348 },
+                                      { "dcode" : "CS", "cnum" : 341 }],
 
                 "term_to_start_planning" : { "season" : "F", "year" : 2019 }
                 } 
