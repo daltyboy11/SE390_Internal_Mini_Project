@@ -1,5 +1,4 @@
-import copy
-from utility import *
+import utility
 
 
 class Scheduler(object):
@@ -13,12 +12,12 @@ class Scheduler(object):
     # schedule: a schedule containing courses the student already knows he/she is going to take,
     #           to be filled out with interested_courses
     #           [ [CS138, MATH119], [], [CS241], [] ]
-    def __init__(self, terms_in_school, max_courses, terms_offered, prereqs, all_courses, schedule):
+    def __init__(self, terms_in_school, max_courses, terms_offered, prereqs, schedule):
         self.terms_in_school = terms_in_school
         self.max_courses = max_courses
         self.terms_offered = terms_offered
         self.prereqs = prereqs
-        self.all_courses = all_courses
+        # self.all_courses = all_courses
         self.schedule = schedule
 
         self.terms = len(terms_in_school)
@@ -47,9 +46,9 @@ class Scheduler(object):
 
     # takes the courses, and creates a new list that contains all interested courses and the terms
     # they are offered
-    def courses_needed(self):
+    def wrap_courses(self, sorted_courses):
         course_list = []
-        for course in self.all_courses:
+        for course in sorted_courses:
             course_list.append((course, self.terms_offered[course]))
 
         return course_list
@@ -91,10 +90,10 @@ class Scheduler(object):
         # Remove terms that do not have course
         term_indices = self.map_term_to_index()
         for season in terms_offered:
-            indices = filter_in(indices, term_indices[season])
+            indices = utility.filter_in(indices, term_indices[season])
 
         # Remove terms for which the student is not on campus
-        indices = filter_in(indices, self.terms_on_campus())
+        indices = utility.filter_in(indices, self.terms_on_campus())
 
         # Remove terms for which the courses are maxed out
         for i in indices:
@@ -109,28 +108,38 @@ class Scheduler(object):
                 max_prereq_term = t
 
         # remove all terms that are earlier than max_prereq_term
-        indices = filter_out(indices, range(max_prereq_term+1))
+        indices = utility.filter_out(indices, range(max_prereq_term+1))
 
         if len(indices) == 0:
             return None
 
         for i in indices:
-            cschedule = copy.deepcopy(schedule)
-            ccourses = copy.deepcopy(courses)
+            cschedule = schedule.copy()
+            ccourses = schedule.copy()
 
             # add course into the schedule
             cschedule[i].append(course)
+            # remove the first course
             ccourses.pop(0)
-
             if len(ccourses) == 0:
                 return cschedule
 
-            return self.scheduler_util(cschedule, ccourses)
+            final = self.scheduler_util(cschedule, ccourses)
+            if final is not None:
+                return final
+
+        return None
 
     # main function that will be called
     def scheduler(self):
-        return 0
+        prereq_list = self.prereq_graph()
+        sorted_courses = utility.top_sort(prereq_list)
+
+        sorted_courses = self.wrap_courses(sorted_courses)
+
+        self.scheduler(self.schedule.copy(), sorted_courses)
 
 
 if __name__ == "__main__":
-    print("Hello world")
+    terms_in_school = [["W2019", "yes"], ["S2019", "no"], ["F2019", "yes"]]
+    max_courses = 3
