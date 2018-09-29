@@ -62,12 +62,15 @@ def create_app( test_config=None ):
         prerequisites = {}
         terms_offered = {}
 
+        # Map each course to its immediate prerequisites
         for json_course in json_courses_to_take:
             course = json_course['dcode'] + str( json_course['cnum'] )
             courses.append( course )
             course_prerequisites = uw.course_prerequistes( json_course['dcode'], json_course['cnum'] )
             prerequisites[course] = prerequisite_list( course_prerequisites['prerequisites_parsed'] )
 
+        # For all courses ( courses to take and prerequisites ) find the term offered info
+        # and put it in a dictionary
         for course in courses:
             course_info = get_course_info( course )
             tList = requests.get( get_course_url( course_info[0], course_info[1] ) ).json()['data']['terms_offered']
