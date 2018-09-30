@@ -1,10 +1,12 @@
 import os
-from flask import Flask
-from flask import request
-from uwaterlooapi import UWaterlooAPI
+import pprint                           # pretty printing
+from flask import Flask                 # flask app
+from flask import request               # flask app
+from uwaterlooapi import UWaterlooAPI   # UWaterloo Open Data API
 import json
 import requests
 
+pp = pprint.PrettyPrinter( indent=4 )
 uw = UWaterlooAPI( api_key="234279968e219cf1f180a48bf217c318" )
 COURSE_BASE_URL = "https://api.uwaterloo.ca/v2/courses/"
 KEY = "?key=234279968e219cf1f180a48bf217c318"
@@ -34,10 +36,10 @@ def create_app( test_config=None ):
             if type( item ) is str:
                 ans.append( item )
             elif type( item ) is int:
-                if type( prereqs[idx + 1] ) is str:
-                    ans += prerequisite_list( [prereqs[idx + 1]] ) 
+                if type( prereqs[len( prereqs ) - 1] ) is str:
+                    ans += prerequisite_list( [prereqs[len( prereqs ) - 1]] ) 
                 else:
-                    ans += prerequisite_list( prereqs[idx + 1 ] )
+                    ans += prerequisite_list( prereqs[len( prereqs ) - 1] )
                 break
             else:
                 ans += prerequisite_list( prereqs[idx] ) 
@@ -54,32 +56,85 @@ def create_app( test_config=None ):
             i += 1
         return ( course[:i], course[i:] )
 
+    '''
+    Regular track means non-advanced course. E.g. CS 145 would be transformed to CS 135.
+    Non advanced courses are left untouched
+    '''
+    def get_regular_track_course( course ):
+        dcode, cnum = get_course_info( course )
+        if ( dcode != "CS" and dcode != "MATH" ):
+            return course
+        cnum = int( cnum )
+        if cnum == 145 or \
+        cnum == 146 and dcode == "MATH" or \
+        cnum == 147 and dcode == "MATH" or \
+        cnum == 148 and dcode == "MATH" or \
+        cnum == 245 and dcode == "MATH" or \
+        cnum == 247 and dcode == "MATH" or \
+        cnum == 249 and dcode == "MATH":
+            return dcode + str( cnum - 10 )
+        return course
+
+    def get_all_prereqs( prerequisites ):
+        while True:
+            needsRefresh = False
+            prereq_prereqs = {}
+            for course, course_prereqs in prerequisites.items():
+                # Skip over courses with no prerequisites
+                if len( course_prereqs ) == 0:
+                    continue
+                # We need to find the prerequisites for our prerequisites
+                # For each prerequisite, if we do not have its prerequisites
+                # Then add its prerequisites to the dictionary using the
+                # uw open data api
+                for prereq in course_prereqs:
+                    if prereq in prerequisites:
+                        continue
+                    needsRefresh = True
+                    prereq_info = get_course_info( prereq )
+                    prereq_prerequisites = uw.course_prerequistes( prereq_info[0], prereq_info[1] )
+                    prereq_prerequisites_parsed = [ get_regular_track_course( x ) for x in prerequisite_list( prereq_prerequisites.get('prerequisites_parsed', [] ) ) ]
+                    prereq_prereqs[prereq] = prereq_prerequisites_parsed
+
+            if not needsRefresh:
+                break
+
+            for prereq, prereq_list in prereq_prereqs.items():
+                prerequisites[prereq] = prereq_list
+        
     def preprocess_courses( json_data ):
         json_courses_taken = json_data['courses_taken']
         json_courses_to_take = json_data['courses_to_take']
 
+        courses_taken = []
         courses = []
         prerequisites = {}
         terms_offered = {}
 
-        # Map each course to its immediate prerequisites
+        for json_course in json_courses_taken:
+            courses_taken.append( get_regular_track_course( json_course['dcode'] + str( json_course['cnum'] ) ) )
+            
         for json_course in json_courses_to_take:
             course = json_course['dcode'] + str( json_course['cnum'] )
             courses.append( course )
             course_prerequisites = uw.course_prerequistes( json_course['dcode'], json_course['cnum'] )
-            prerequisites[course] = prerequisite_list( course_prerequisites['prerequisites_parsed'] )
+            parsed_course_prerequisites = prerequisite_list( course_prerequisites['prerequisites_parsed'] )
+            prerequisites[course] = [ get_regular_track_course( x ) for x in prerequisite_list( parsed_course_prerequisites ) ]
+            get_all_prereqs( prerequisites )
 
-        # For all courses ( courses to take and prerequisites ) find the term offered info
-        # and put it in a dictionary
-        for course in courses:
-            course_info = get_course_info( course )
-            tList = requests.get( get_course_url( course_info[0], course_info[1] ) ).json()['data']['terms_offered']
-            terms_offered[course] = tList 
-            for prereq in prerequisites[course]:
-                prereq_info = get_course_info( prereq )
-                pList = requests.get( get_course_url( prereq_info[0], prereq_info[1] ) ).json()['data']['terms_offered']
-                terms_offered[prereq] = pList
+        for key, value in prerequisites.items():
+            dcode, cnum = get_course_info( key )
+            terms_offered[key] = requests.get( get_course_url( dcode, cnum ) ).json()['data']['terms_offered']
 
+        print()
+        print( "Courses Taken" )
+        pp.pprint( courses_taken )
+        print( "Courses to Take" )
+        pp.pprint( courses )
+        print( "All Prerequisites" )
+        pp.pprint( prerequisites )
+        print( "Terms offered" )
+        pp.pprint( terms_offered )
         return ( courses, prerequisites, terms_offered )
 
     @app.route( '/course_planner', methods=['POST'] )
