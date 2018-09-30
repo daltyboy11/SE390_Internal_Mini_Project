@@ -23,7 +23,7 @@ def top_sort_util(prereq_chart, v, visited, stack):
         if not visited[i]:
             top_sort_util(prereq_chart, i, visited, stack)
 
-    stack.insert(0, v)
+    stack.append(prereq_chart[v][0])
 
 
 def top_sort(prereq_chart):
