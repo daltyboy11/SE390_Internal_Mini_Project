@@ -12,7 +12,7 @@ class Scheduler(object):
     # schedule: a schedule containing courses the student already knows he/she is going to take,
     #           to be filled out with interested_courses
     #           [ [CS138, MATH119], [], [CS241], [] ]
-    def __init__(self, terms_in_school, max_courses, terms_offered, prereqs, schedule):
+    def __init__(self, terms_in_school, max_courses, terms_offered, prereqs, schedule, past_courses):
         self.terms_in_school = terms_in_school
         self.max_courses = max_courses
         self.terms_offered = terms_offered
@@ -20,6 +20,7 @@ class Scheduler(object):
         # self.all_courses = all_courses
         self.schedule = schedule
 
+        self.past_courses = past_courses
         self.terms = len(terms_in_school)
         # is the first term F, W, S?
         self.first_term = terms_in_school[0][0][:1]
@@ -79,7 +80,7 @@ class Scheduler(object):
 
         return -1
 
-    def is_course_taken(self, schedule, course):
+    def is_course_scheduled(self, schedule, course):
         for t in schedule:
             for c in t:
                 if course == c:
@@ -93,10 +94,21 @@ class Scheduler(object):
         course = courses[0][0]  # the current course we want to insert into the schedule
         terms_offered = courses[0][1]  # the seasons the course is offered in
 
-        if self.is_course_taken(schedule, course):
+        if course in self.past_courses:
             ccourse = courses.copy()
             ccourse.pop(0)
-            return self.scheduler_util(schedule.copy(), ccourse)
+            cschedule = schedule.copy()
+            if len(ccourse) == 0:
+                return cschedule
+            return self.scheduler_util(cschedule, ccourse)
+
+        if self.is_course_scheduled(schedule, course):
+            ccourse = courses.copy()
+            ccourse.pop(0)
+            cschedule = schedule.copy()
+            if len(ccourse) == 0:
+                return cschedule
+            return self.scheduler_util(cschedule, ccourse)
 
         indices = list(range(self.terms))  # possible terms the course can be scheduled in. Will be further filtered.
 
@@ -204,8 +216,10 @@ if __name__ == "__main__":
         'STAT240': ['F']
     }
 
+    past_courses = ["MATH135"]
+
     schedule = [ ["CS145"], [], [], [], [], [], [], [], [], [], [], [], [], [], [] ]
 
-    scheduler = Scheduler(terms_in_school, max_courses, terms_offered, prereqs, schedule)
+    scheduler = Scheduler(terms_in_school, max_courses, terms_offered, prereqs, schedule, past_courses)
 
     print(scheduler.scheduler())
