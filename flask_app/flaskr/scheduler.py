@@ -56,7 +56,7 @@ class Scheduler(object):
     # contructs the graph needed to be used to
     def prereq_graph(self):
         adjList = []
-        for course, prerequisite in self.prereqs:
+        for course, prerequisite in self.prereqs.items():
             adjList.append((course, prerequisite))
 
         return adjList
@@ -72,32 +72,49 @@ class Scheduler(object):
 
     # finds the term course is in the schedule, -1 otherwise
     def find_term(self, schedule, course):
-        for i in range(schedule):
-            for c in schedule[i][1]:
+        for i in range(len(schedule)):
+            for c in schedule[i]:
                 if c == course:
                     return i
 
         return -1
 
-    # schedule is a list that looks like [(CS348, [list of prereqs])]
+    def is_course_taken(self, schedule, course):
+        for t in schedule:
+            for c in t:
+                if course == c:
+                    return True
+
+        return False
+
+    # schedule is a list that looks like [ [CS148], [CS238, CS212], ... ]
     # courses should be [ [CS348, [W, S] ], ...]
     def scheduler_util(self, schedule, courses):
         course = courses[0][0]  # the current course we want to insert into the schedule
         terms_offered = courses[0][1]  # the seasons the course is offered in
 
-        indices = list(range(self.terms))   # possible terms the course can be scheduled in. Will be further filtered.
+        if self.is_course_taken(schedule, course):
+            ccourse = courses.copy()
+            ccourse.pop(0)
+            return self.scheduler_util(schedule.copy(), ccourse)
+
+        indices = list(range(self.terms))  # possible terms the course can be scheduled in. Will be further filtered.
 
         # Remove terms that do not have course
         term_indices = self.map_term_to_index()
+        offered_indices = []
         for season in terms_offered:
-            indices = utility.filter_in(indices, term_indices[season])
+            offered_indices = offered_indices + term_indices[season]
+
+        indices = utility.filter_in(indices, offered_indices)
 
         # Remove terms for which the student is not on campus
-        indices = utility.filter_in(indices, self.terms_on_campus())
+        toc = self.terms_on_campus()
+        indices = utility.filter_in(indices, toc)
 
         # Remove terms for which the courses are maxed out
         for i in indices:
-            if len(schedule[i][1]) >= self.max_courses:
+            if len(schedule[i]) >= self.max_courses:
                 indices.remove(i)
 
         # find the term the latest prereq is in
@@ -108,14 +125,14 @@ class Scheduler(object):
                 max_prereq_term = t
 
         # remove all terms that are earlier than max_prereq_term
-        indices = utility.filter_out(indices, range(max_prereq_term+1))
+        indices = utility.filter_out(indices, range(max_prereq_term + 1))
 
         if len(indices) == 0:
             return None
 
         for i in indices:
             cschedule = schedule.copy()
-            ccourses = schedule.copy()
+            ccourses = courses.copy()
 
             # add course into the schedule
             cschedule[i].append(course)
@@ -136,10 +153,59 @@ class Scheduler(object):
         sorted_courses = utility.top_sort(prereq_list)
 
         sorted_courses = self.wrap_courses(sorted_courses)
+        schedule = self.scheduler_util(self.schedule.copy(), sorted_courses)
 
-        self.scheduler(self.schedule.copy(), sorted_courses)
+        return schedule
 
 
 if __name__ == "__main__":
-    terms_in_school = [["W2019", "yes"], ["S2019", "no"], ["F2019", "yes"]]
-    max_courses = 3
+    terms_in_school = [ ["F2019", "yes"], ["W2019", "yes"], ["S2019", "no"],
+                         ["F2020", "yes"], ["W2020", "no"], ["S2020", "yes"],
+                        ["F2021", "no"], ["W2021", "yes"], ["S2021", "no"],
+                        ["F2021", "yes"], ["W2021", "no"], ["S2021", "yes"],
+                        ["F2021", "no"], ["W2021", "yes"], ["S2021", "no"] ]
+    max_courses = 10
+
+    prereqs = {
+        'CS145': [],
+        'CS146': ['CS145'],
+        'CS240': ['SE212', 'CS247', 'STAT240'],
+        'CS241': ['CS146'],
+        'CS247': ['CS241'],
+        'CS341': ['CS240', 'MATH249'],
+        'MATH119': ['MATH147'],
+        'MATH135': [],
+        'MATH145': [],
+        'MATH146': ['MATH145'],
+        'MATH147': [],
+        'MATH213': ['MATH119'],
+        'MATH249': ['MATH145', 'MATH146'],
+        'SE212': ['MATH135'],
+        'SE380': ['MATH213'],
+        'STAT240': ['MATH147']
+    }
+
+    terms_offered = {
+        'CS145': ['F'],
+        'CS146': ['W'],
+        'CS240': ['F', 'W', 'S'],
+        'CS241': ['F', 'W', 'S'],
+        'CS247': ['S'],
+        'CS341': ['F', 'W', 'S'],
+        'MATH119': ['W', 'S'],
+        'MATH135': ['F', 'W', 'S'],
+        'MATH145': ['F'],
+        'MATH146': ['W'],
+        'MATH147': ['F'],
+        'MATH213': ['S'],
+        'MATH249': ['F', 'W'],
+        'SE212': ['F'],
+        'SE380': ['F'],
+        'STAT240': ['F']
+    }
+
+    schedule = [ ["CS145"], [], [], [], [], [], [], [], [], [], [], [], [], [], [] ]
+
+    scheduler = Scheduler(terms_in_school, max_courses, terms_offered, prereqs, schedule)
+
+    print(scheduler.scheduler())
