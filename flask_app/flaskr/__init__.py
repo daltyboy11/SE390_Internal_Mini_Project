@@ -4,6 +4,9 @@ from flask import request               # flask app
 from uwaterlooapi import UWaterlooAPI   # UWaterloo Open Data API
 import json
 import requests
+import sys
+sys.path.append('/Users/daltyboy11/School/3b/se390/internal_mini_project/flask_app/flaskr')
+import scheduler
 
 pp = pprint.PrettyPrinter( indent=4 )
 uw = UWaterlooAPI( api_key="234279968e219cf1f180a48bf217c318" )
@@ -135,10 +138,19 @@ def create_app( test_config=None ):
         pp.pprint( terms_offered )
         return ( courses, prerequisites, terms_offered )
 
-    @app.route( '/course_planner', methods=['POST'] )
+    @app.route( '/course_planner', methods=['GET'] )
     def course_planner():
+        print( request.get_json() )
+        '''
+        terms_in_school = [ ["F2019", "yes"], ["W2019", "yes"], ["S2019", "no"],
+                         ["F2020", "yes"], ["W2020", "no"], ["S2020", "yes"],
+                        ["F2021", "no"], ["W2021", "yes"], ["S2021", "no"],
+                        ["F2021", "yes"], ["W2021", "no"], ["S2021", "yes"],
+                        ["F2021", "no"], ["W2021", "yes"], ["S2021", "no"] ]
         json_data = request.get_json()
         courses, prerequisites, terms_offered = preprocess_courses( json_data )
+        scheduler = Scheduler( terms_in_school, 5, terms_offerred, prerequisites, courses )
+        '''
         return "course_planner"
 
     return app
